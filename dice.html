@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="ja" class="dark scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DICE ROLL | 3Dダイスローラー & TRPGツール</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Zen+Kaku+Gothic+New:wght@400;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        cyber: {
+                            bg: '#0a0d14',
+                            card: '#121824',
+                            border: '#1f293d',
+                            accent: '#6366f1',
+                            neon: '#06b6d4',
+                            pink: '#ec4899',
+                            gold: '#f59e0b',
+                            crit: '#10b981',
+                            fumble: '#ef4444'
+                        }
+                    },
+                    fontFamily: {
+                        orbitron: ['Orbitron', 'sans-serif'],
+                        sans: ['"Zen Kaku Gothic New"', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0a0d14;
+            color: #f3f4f6;
+            font-family: 'Zen Kaku Gothic New', sans-serif;
+            background-image: 
+                radial-gradient(circle at 15% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 85% 80%, rgba(6, 182, 212, 0.08) 0%, transparent 40%);
+        }
+
+        .font-orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        /* 3D Dice Styles */
+        .dice-stage {
+            perspective: 1000px;
+        }
+
+        .dice-container {
+            width: 80px;
+            height: 80px;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.1s ease-out;
+        }
+
+        .dice-face {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            border-radius: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            font-size: 1.75rem;
+            color: #ffffff;
+            box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.6), 0 0 15px rgba(99, 102, 241, 0.3);
+            backdrop-filter: blur(4px);
+            user-select: none;
+            background: rgba(18, 24, 36, 0.9);
+        }
+
+        /* D6 Faces Positioning */
+        .dice-face-1 { transform: rotateY(0deg) translateZ(40px); }
+        .dice-face-2 { transform: rotateY(90deg) translateZ(40px); }
+        .dice-face-3 { transform: rotateY(180deg) translateZ(40px); }
+        .dice-face-4 { transform: rotateY(-90deg) translateZ(40px); }
+        .dice-face-5 { transform: rotateX(90deg) translateZ(40px); }
+        .dice-face-6 { transform: rotateX(-90deg) translateZ(40px); }
+
+        /* Polyhedral Generic Dice Look */
+        .dice-poly {
+            border-radius: 20px;
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95));
+            border: 2px solid rgba(6, 182, 212, 0.5);
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.2);
+        }
+
+        @keyframes roll-anim {
+            0% { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg) scale(0.8); }
+            25% { transform: rotateX(360deg) rotateY(180deg) rotateZ(90deg) scale(1.1); }
+            50% { transform: rotateX(720deg) rotateY(540deg) rotateZ(270deg) scale(0.9); }
+            75% { transform: rotateX(1080deg) rotateY(720deg) rotateZ(360deg) scale(1.05); }
+            100% { transform: rotateX(1440deg) rotateY(1080deg) rotateZ(450deg) scale(1); }
+        }
+
+        .rolling {
+            animation: roll-anim 0.8s cubic-bezier(0.25, 0.8, 0.25, 1) infinite;
+        }
+
+        /* Glowing text effects */
+        .glow-neon {
+            text-shadow: 0 0 10px rgba(6, 182, 212, 0.6), 0 0 20px rgba(6, 182, 212, 0.4);
+        }
+        .glow-pink {
+            text-shadow: 0 0 10px rgba(236, 72, 153, 0.6), 0 0 20px rgba(236, 72, 153, 0.4);
+        }
+        .glow-gold {
+            text-shadow: 0 0 10px rgba(245, 158, 11, 0.8), 0 0 20px rgba(245, 158, 11, 0.5);
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0a0d14;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1f293d;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #374151;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-cyber-neon selection:text-black">
+
+    <!-- Header / Navbar -->
+    <header class="border-b border-cyber-border bg-cyber-card/80 backdrop-blur-md sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyber-accent to-cyber-neon p-0.5 shadow-lg shadow-cyber-accent/20">
+                    <div class="w-full h-full bg-cyber-bg rounded-[10px] flex items-center justify-center">
+                        <i data-lucide="dices" class="w-6 h-6 text-cyber-neon"></i>
+                    </div>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold font-orbitron tracking-wider bg-gradient-to-r from-white via-gray-200 to-cyber-neon bg-clip-text text-transparent">
+                        DICE ROLL
+                    </h1>
+                    <p class="text-[10px] text-gray-400 font-medium tracking-widest -mt-1">TRPG & BOARDGAME ROLLER</p>
+                </div>
+            </div>
+
+            <!-- Sound & Clear Actions -->
+            <div class="flex items-center gap-3">
+                <button id="sound-toggle" onclick="toggleSound()" class="p-2.5 rounded-xl bg-cyber-border/50 hover:bg-cyber-border text-gray-300 hover:text-white transition flex items-center gap-2 text-xs font-semibold">
+                    <i id="sound-icon" data-lucide="volume-2" class="w-4 h-4 text-cyber-neon"></i>
+                    <span class="hidden sm:inline" id="sound-label">サウンド ON</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main App Layout -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow grid grid-cols-1 lg:grid-cols-12 gap-8 w-full">
+        
+        <!-- Left Column: Controls & Presets (5 cols) -->
+        <div class="lg:col-span-5 space-y-6">
+            
+            <!-- Quick TRPG Presets -->
+            <div class="bg-cyber-card border border-cyber-border rounded-2xl p-5 shadow-xl">
+                <h2 class="text-xs font-bold font-orbitron text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <i data-lucide="zap" class="w-4 h-4 text-cyber-gold"></i> TRPG プリセット
+                </h2>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                    <button onclick="applyPreset('COC')" class="p-3 bg-cyber-bg hover:bg-cyber-border/80 border border-cyber-border hover:border-cyber-neon/50 rounded-xl text-left transition group">
+                        <div class="text-xs font-bold text-gray-200 group-hover:text-cyber-neon">CoCクトゥルフ</div>
+                        <div class="text-[10px] font-orbitron text-gray-400 mt-1">1D100</div>
+                    </button>
+                    <button onclick="applyPreset('SHINOBI')" class="p-3 bg-cyber-bg hover:bg-cyber-border/80 border border-cyber-border hover:border-cyber-neon/50 rounded-xl text-left transition group">
+                        <div class="text-xs font-bold text-gray-200 group-hover:text-cyber-neon">シノビガミ</div>
+                        <div class="text-[10px] font-orbitron text-gray-400 mt-1">2D6</div>
+                    </button>
+                    <button onclick="applyPreset('DND')" class="p-3 bg-cyber-bg hover:bg-cyber-border/80 border border-cyber-border hover:border-cyber-neon/50 rounded-xl text-left transition group">
+                        <div class="text-xs font-bold text-gray-200 group-hover:text-cyber-neon">D&D 判定</div>
+                        <div class="text-[10px] font-orbitron text-gray-400 mt-1">1D20 + Mod</div>
+                    </button>
+                    <button onclick="applyPreset('SW25')" class="p-3 bg-cyber-bg hover:bg-cyber-border/80 border border-cyber-border hover:border-cyber-neon/50 rounded-xl text-left transition group">
+                        <div class="text-xs font-bold text-gray-200 group-hover:text-cyber-neon">SW2.5 威力</div>
+                        <div class="text-[10px] font-orbitron text-gray-400 mt-1">2D6 + Mod</div>
+                    </button>
+                    <button onclick="applyPreset('FATE')" class="p-3 bg-cyber-bg hover:bg-cyber-border/80 border border-cyber-border hover:border-cyber-neon/50 rounded-xl text-left transition group">
+                        <div class="text-xs font-bold text-gray-200 group-hover:text-cyber-neon">運命ダイス</div>
+                        <div class="text-[10px] font-orbitron text-gray-400 mt-1">4D6 (Custom)</div>
+                    </button>
+                    <button onclick="applyPreset('PENALTY')" class="p-3 bg-cyber-bg hover:bg-cyber-border/80 border border-cyber-border hover:border-cyber-neon/50 rounded-xl text-left transition group">
+                        <div class="text-xs font-bold text-gray-200 group-hover:text-cyber-neon">罰ゲーム</div>
+                        <div class="text-[10px] font-orbitron text-gray-400 mt-1">カスタムテキスト</div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dice Pool Configurator -->
+            <div class="bg-cyber-card border border-cyber-border rounded-2xl p-5 shadow-xl space-y-5">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-xs font-bold font-orbitron text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                        <i data-lucide="sliders" class="w-4 h-4 text-cyber-accent"></i> ダイスプール選択
+                    </h2>
+                    <button onclick="clearPool()" class="text-xs text-gray-400 hover:text-cyber-pink transition flex items-center gap-1">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> クリア
+                    </button>
+                </div>
+
+                <!-- Dice Selector Buttons -->
+                <div class="grid grid-cols-4 sm:grid-cols-7 gap-2">
+                    <button onclick="addDiceToPool(4)" class="py-2.5 px-1 bg-cyber-bg hover:bg-cyber-accent/20 border border-cyber-border hover:border-cyber-accent rounded-xl flex flex-col items-center gap-1 transition">
+                        <span class="font-orbitron font-bold text-xs text-cyber-neon">D4</span>
+                    </button>
+                    <button onclick="addDiceToPool(6)" class="py-2.5 px-1 bg-cyber-bg hover:bg-cyber-accent/20 border border-cyber-border hover:border-cyber-accent rounded-xl flex flex-col items-center gap-1 transition">
+                        <span class="font-orbitron font-bold text-xs text-cyber-neon">D6</span>
+                    </button>
+                    <button onclick="addDiceToPool(8)" class="py-2.5 px-1 bg-cyber-bg hover:bg-cyber-accent/20 border border-cyber-border hover:border-cyber-accent rounded-xl flex flex-col items-center gap-1 transition">
+                        <span class="font-orbitron font-bold text-xs text-cyber-neon">D8</span>
+                    </button>
+                    <button onclick="addDiceToPool(10)" class="py-2.5 px-1 bg-cyber-bg hover:bg-cyber-accent/20 border border-cyber-border hover:border-cyber-accent rounded-xl flex flex-col items-center gap-1 transition">
+                        <span class="font-orbitron font-bold text-xs text-cyber-neon">D10</span>
+                    </button>
+                    <button onclick="addDiceToPool(12)" class="py-2.5 px-1 bg-cyber-bg hover:bg-cyber-accent/20 border border-cyber-border hover:border-cyber-accent rounded-xl flex flex-col items-center gap-1 transition">
+                        <span class="font-orbitron font-bold text-xs text-cyber-neon">D12</span>
+                    </button>
+                    <button onclick="addDiceToPool(20)" class="py-2.5 px-1 bg-cyber-bg hover:bg-cyber-accent/20 border border-cyber-border hover:border-cyber-accent rounded-xl flex flex-col items-center gap-1 transition">
+                        <span class="font-orbitron font-bold text-xs text-cyber-neon">D20</span>
+                    </button>
+                    <button onclick="addDiceToPool(100)" class="py-2.5 px-1 bg-cyber-bg hover:bg-cyber-accent/20 border border-cyber-border hover:border-cyber-accent rounded-xl flex flex-col items-center gap-1 transition">
+                        <span class="font-orbitron font-bold text-xs text-cyber-neon">D100</span>
+                    </button>
+                </div>
+
+                <!-- Active Pool List -->
+                <div class="bg-cyber-bg border border-cyber-border/80 rounded-xl p-3 min-h-[90px]">
+                    <div class="text-[11px] text-gray-500 mb-2 font-medium">現在のダイスプール:</div>
+                    <div id="active-pool-tags" class="flex flex-wrap gap-2">
+                        <!-- Tags injected by JS -->
+                    </div>
+                </div>
+
+                <!-- Modifier (補正値) Setting -->
+                <div class="flex items-center justify-between bg-cyber-bg border border-cyber-border rounded-xl p-3">
+                    <label for="modifier-input" class="text-xs font-bold text-gray-300 flex items-center gap-2">
+                        <i data-lucide="plus-minus" class="w-4 h-4 text-cyber-gold"></i> 修正値 (Modifier)
+                    </label>
+                    <div class="flex items-center gap-2">
+                        <button onclick="adjustModifier(-1)" class="w-8 h-8 rounded-lg bg-cyber-border hover:bg-gray-700 font-orbitron font-bold text-white flex items-center justify-center transition">-</button>
+                        <input type="number" id="modifier-input" value="0" class="w-16 bg-cyber-card border border-cyber-border rounded-lg py-1 px-2 text-center font-orbitron font-bold text-white focus:outline-none focus:border-cyber-neon">
+                        <button onclick="adjustModifier(1)" class="w-8 h-8 rounded-lg bg-cyber-border hover:bg-gray-700 font-orbitron font-bold text-white flex items-center justify-center transition">+</button>
+                    </div>
+                </div>
+
+                <!-- Roll Button -->
+                <button id="roll-button" onclick="rollDice()" class="w-full py-4 bg-gradient-to-r from-cyber-accent via-indigo-600 to-cyber-neon hover:opacity-95 text-white font-orbitron font-black text-xl rounded-2xl shadow-lg shadow-cyber-accent/30 flex items-center justify-center gap-3 transition transform active:scale-95">
+                    <i data-lucide="play" class="w-6 h-6 fill-current"></i> ROLL DICE
+                </button>
+            </div>
+
+            <!-- Custom Dice Builder Modal Trigger / Section -->
+            <div class="bg-cyber-card border border-cyber-border rounded-2xl p-5 shadow-xl space-y-4">
+                <h2 class="text-xs font-bold font-orbitron text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                    <i data-lucide="edit-3" class="w-4 h-4 text-cyber-pink"></i> カスタムテキストダイス
+                </h2>
+                <div class="space-y-3">
+                    <input type="text" id="custom-faces-input" placeholder="面をカンマ区切りで入力 (例: Yes, No, Maybe)" class="w-full bg-cyber-bg border border-cyber-border rounded-xl py-2.5 px-3 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-cyber-pink">
+                    <button onclick="rollCustomDice()" class="w-full py-2.5 bg-cyber-border hover:bg-cyber-pink/20 hover:border-cyber-pink/50 text-cyber-pink border border-cyber-border font-bold text-xs rounded-xl transition flex items-center justify-center gap-2">
+                        <i data-lucide="sparkles" class="w-4 h-4"></i> カスタムダイスを振る
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Column: 3D Stage, Results & History (7 cols) -->
+        <div class="lg:col-span-7 space-y-6">
+
+            <!-- Main Interactive Roll Stage -->
+            <div class="bg-cyber-card border border-cyber-border rounded-2xl p-6 shadow-2xl relative overflow-hidden flex flex-col items-center justify-center min-h-[360px]">
+                
+                <!-- Status Header / Special Highlight Banner -->
+                <div id="result-banner" class="absolute top-4 left-4 right-4 flex justify-between items-center px-4 py-2 rounded-xl bg-cyber-bg/80 border border-cyber-border/80 backdrop-blur-sm">
+                    <span id="formula-display" class="font-orbitron text-xs text-gray-400 font-semibold">Ready to Roll</span>
+                    <span id="special-badge" class="hidden text-xs font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider"></span>
+                </div>
+
+                <!-- 3D Dice Display Container -->
+                <div id="dice-stage-container" class="dice-stage flex flex-wrap items-center justify-center gap-6 my-12 w-full max-w-lg min-h-[120px] transition-all">
+                    <!-- Dynamic 3D/Styled Dice Elements -->
+                </div>
+
+                <!-- Total Score Display -->
+                <div class="text-center mt-2">
+                    <div class="text-[11px] font-orbitron text-gray-500 uppercase tracking-widest mb-1">Total Result</div>
+                    <div id="total-score" class="text-6xl font-black font-orbitron text-white tracking-tight glow-neon">
+                        0
+                    </div>
+                </div>
+            </div>
+
+            <!-- History & Stats Tabbed Card -->
+            <div class="bg-cyber-card border border-cyber-border rounded-2xl p-5 shadow-xl">
+                <div class="flex items-center justify-between border-b border-cyber-border pb-3 mb-4">
+                    <div class="flex gap-4">
+                        <button onclick="switchTab('history')" id="tab-btn-history" class="text-xs font-bold font-orbitron text-cyber-neon border-b-2 border-cyber-neon pb-1 transition">
+                            ロール履歴
+                        </button>
+                        <button onclick="switchTab('stats')" id="tab-btn-stats" class="text-xs font-bold font-orbitron text-gray-400 border-b-2 border-transparent pb-1 hover:text-gray-200 transition">
+                            統計データ
+                        </button>
+                    </div>
+                    <button onclick="clearHistory()" class="text-[11px] text-gray-500 hover:text-cyber-pink transition">
+                        履歴リセット
+                    </button>
+                </div>
+
+                <!-- Tab Content: History List -->
+                <div id="tab-content-history" class="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
+                    <div class="text-center py-8 text-gray-600 text-xs font-medium">まだ履歴はありません</div>
+                </div>
+
+                <!-- Tab Content: Statistics -->
+                <div id="tab-content-stats" class="hidden grid grid-cols-3 gap-3 text-center py-2">
+                    <div class="bg-cyber-bg p-3 rounded-xl border border-cyber-border">
+                        <div class="text-[10px] text-gray-400 font-medium">総ロール回数</div>
+                        <div id="stat-total-rolls" class="text-2xl font-bold font-orbitron text-cyber-neon mt-1">0</div>
+                    </div>
+                    <div class="bg-cyber-bg p-3 rounded-xl border border-cyber-border">
+                        <div class="text-[10px] text-gray-400 font-medium">平均値</div>
+                        <div id="stat-avg-score" class="text-2xl font-bold font-orbitron text-cyber-gold mt-1">0.0</div>
+                    </div>
+                    <div class="bg-cyber-bg p-3 rounded-xl border border-cyber-border">
+                        <div class="text-[10px] text-gray-400 font-medium">最高出目</div>
+                        <div id="stat-max-score" class="text-2xl font-bold font-orbitron text-cyber-pink mt-1">0</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-cyber-border bg-cyber-card/50 py-4 mt-8">
+        <div class="max-w-7xl mx-auto px-4 text-center text-xs text-gray-500">
+            <p>© 2026 DICE ROLL App • Optimized for TRPG, Boardgames & Tabletop Roleplaying</p>
+        </div>
+    </footer>
+
+    <!-- Logic & Audio Engine -->
+    <script>
+        // Audio Synthesizer (Web Audio API)
+        let soundEnabled = true;
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playDiceSound() {
+            if (!soundEnabled) return;
+            initAudio();
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            // Simulate dice clatter noise
+            const now = audioCtx.currentTime;
+            for (let i = 0; i < 4; i++) {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc.type = i % 2 === 0 ? 'sine' : 'triangle';
+                osc.frequency.setValueAtTime(120 + Math.random() * 300, now + i * 0.08);
+                osc.frequency.exponentialRampToValueAtTime(40, now + i * 0.08 + 0.07);
+
+                gain.gain.setValueAtTime(0.15, now + i * 0.08);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.08 + 0.07);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start(now + i * 0.08);
+                osc.stop(now + i * 0.08 + 0.08);
+            }
+        }
+
+        function playCritSound(isCrit) {
+            if (!soundEnabled) return;
+            initAudio();
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.type = isCrit ? 'triangle' : 'sawtooth';
+            osc.frequency.setValueAtTime(isCrit ? 523.25 : 180, now); // C5 or low pitch
+            if (isCrit) {
+                osc.frequency.exponentialRampToValueAtTime(1046.50, now + 0.3); // High C6
+            } else {
+                osc.frequency.exponentialRampToValueAtTime(60, now + 0.3);
+            }
+
+            gain.gain.setValueAtTime(0.2, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start(now);
+            osc.stop(now + 0.35);
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            document.getElementById('sound-label').textContent = soundEnabled ? 'サウンド ON' : 'サウンド OFF';
+            document.getElementById('sound-icon').setAttribute('data-lucide', soundEnabled ? 'volume-2' : 'volume-x');
+            lucide.createIcons();
+        }
+
+        // App State
+        let dicePool = [6]; // Default 1D6
+        let modifier = 0;
+        let history = [];
+        let isRolling = false;
+
+        // Add / Remove Dice in Pool
+        function addDiceToPool(sides) {
+            if (dicePool.length >= 10) return; // Cap at 10 dice
+            dicePool.push(sides);
+            renderPoolTags();
+        }
+
+        function removeDiceFromPool(index) {
+            dicePool.splice(index, 1);
+            renderPoolTags();
+        }
+
+        function clearPool() {
+            dicePool = [];
+            renderPoolTags();
+        }
+
+        function adjustModifier(delta) {
+            modifier += delta;
+            document.getElementById('modifier-input').value = modifier;
+        }
+
+        document.getElementById('modifier-input').addEventListener('change', (e) => {
+            modifier = parseInt(e.target.value) || 0;
+        });
+
+        function renderPoolTags() {
+            const container = document.getElementById('active-pool-tags');
+            container.innerHTML = '';
+
+            if (dicePool.length === 0) {
+                container.innerHTML = '<span class="text-xs text-gray-600">ダイスを選択してください</span>';
+                return;
+            }
+
+            dicePool.forEach((sides, idx) => {
+                const tag = document.createElement('div');
+                tag.className = "flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyber-card border border-cyber-border text-xs font-orbitron font-bold text-cyber-neon";
+                tag.innerHTML = `
+                    <span>D${sides}</span>
+                    <button onclick="removeDiceFromPool(${idx})" class="text-gray-500 hover:text-cyber-pink transition">
+                        <i data-lucide="x" class="w-3 h-3"></i>
+                    </button>
+                `;
+                container.appendChild(tag);
+            });
+            lucide.createIcons();
+        }
+
+        // Apply TRPG Presets
+        function applyPreset(presetType) {
+            modifier = 0;
+            document.getElementById('modifier-input').value = 0;
+
+            switch(presetType) {
+                case 'COC':
+                    dicePool = [100];
+                    break;
+                case 'SHINOBI':
+                    dicePool = [6, 6];
+                    break;
+                case 'DND':
+                    dicePool = [20];
+                    modifier = 2;
+                    document.getElementById('modifier-input').value = 2;
+                    break;
+                case 'SW25':
+                    dicePool = [6, 6];
+                    break;
+                case 'FATE':
+                    rollCustomDice(['-', '0', '+']);
+                    return;
+                case 'PENALTY':
+                    document.getElementById('custom-faces-input').value = "デコピン, 一発ギャグ, 奢り, パス, 全員褒める, 腕立て10回";
+                    rollCustomDice();
+                    return;
+            }
+            renderPoolTags();
+            rollDice();
+        }
+
+        // Generate Random Dice Results
+        function rollDice() {
+            if (isRolling) return;
+            if (dicePool.length === 0) {
+                alert('ダイスを選択してください');
+                return;
+            }
+
+            isRolling = true;
+            playDiceSound();
+
+            const stage = document.getElementById('dice-stage-container');
+            const totalDisplay = document.getElementById('total-score');
+            const formulaDisplay = document.getElementById('formula-display');
+            const specialBadge = document.getElementById('special-badge');
+
+            // Reset UI State
+            specialBadge.classList.add('hidden');
+            stage.innerHTML = '';
+            totalDisplay.textContent = '...';
+
+            // Construct Formula Text
+            const poolCounts = {};
+            dicePool.forEach(d => poolCounts[d] = (poolCounts[d] || 0) + 1);
+            let formulaStr = Object.entries(poolCounts).map(([d, count]) => `${count}D${d}`).join(' + ');
+            if (modifier !== 0) {
+                formulaStr += modifier > 0 ? ` + ${modifier}` : ` - ${Math.abs(modifier)}`;
+            }
+            formulaDisplay.textContent = formulaStr;
+
+            // Build Animated Dice Elements
+            const diceElements = [];
+            dicePool.forEach(sides => {
+                const wrapper = document.createElement('div');
+                
+                if (sides === 6) {
+                    // 3D Cube for D6
+                    wrapper.className = "dice-container rolling";
+                    wrapper.innerHTML = `
+                        <div class="dice-face dice-face-1">1</div>
+                        <div class="dice-face dice-face-2">2</div>
+                        <div class="dice-face dice-face-3">3</div>
+                        <div class="dice-face dice-face-4">4</div>
+                        <div class="dice-face dice-face-5">5</div>
+                        <div class="dice-face dice-face-6">6</div>
+                    `;
+                } else {
+                    // Polyhedral styled dice
+                    wrapper.className = "w-20 h-20 dice-poly flex items-center justify-center font-orbitron font-extrabold text-2xl text-cyber-neon rolling";
+                    wrapper.textContent = `D${sides}`;
+                }
+                stage.appendChild(wrapper);
+                diceElements.push({ el: wrapper, sides: sides });
+            });
+
+            // Settle Results after Animation
+            setTimeout(() => {
+                let total = 0;
+                const results = [];
+                let isCritical = false;
+                let isFumble = false;
+
+                diceElements.forEach((item) => {
+                    const val = Math.floor(Math.random() * item.sides) + 1;
+                    results.push({ sides: item.sides, value: val });
+                    total += val;
+
+                    item.el.classList.remove('rolling');
+
+                    if (item.sides === 6) {
+                        // Rotate 3D cube to show top face
+                        const rotations = {
+                            1: 'rotateY(0deg)',
+                            2: 'rotateY(-90deg)',
+                            3: 'rotateY(-180deg)',
+                            4: 'rotateY(90deg)',
+                            5: 'rotateX(-90deg)',
+                            6: 'rotateX(90deg)'
+                        };
+                        item.el.style.transform = rotations[val];
+                    } else {
+                        item.el.textContent = val;
+                    }
+
+                    // Special Highlight Logic (D100 & D20)
+                    if (item.sides === 100) {
+                        if (val <= 5) isCritical = true;
+                        if (val >= 96) isFumble = true;
+                    } else if (item.sides === 20 && dicePool.length === 1) {
+                        if (val === 20) isCritical = true;
+                        if (val === 1) isFumble = true;
+                    }
+                });
+
+                const finalTotal = total + modifier;
+                totalDisplay.textContent = finalTotal;
+
+                // Handle Badges & Sound effects
+                if (isCritical) {
+                    specialBadge.textContent = "CRITICAL!!";
+                    specialBadge.className = "text-xs font-bold px-2.5 py-0.5 rounded-full bg-cyber-crit/20 text-cyber-crit border border-cyber-crit glow-neon";
+                    specialBadge.classList.remove('hidden');
+                    playCritSound(true);
+                } else if (isFumble) {
+                    specialBadge.textContent = "FUMBLE!!";
+                    specialBadge.className = "text-xs font-bold px-2.5 py-0.5 rounded-full bg-cyber-fumble/20 text-cyber-fumble border border-cyber-fumble glow-pink";
+                    specialBadge.classList.remove('hidden');
+                    playCritSound(false);
+                }
+
+                // Add to History
+                saveHistory({
+                    formula: formulaStr,
+                    total: finalTotal,
+                    details: results,
+                    modifier: modifier,
+                    timestamp: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                });
+
+                isRolling = false;
+            }, 800);
+        }
+
+        // Custom Text Dice Roll
+        function rollCustomDice(presetFaces = null) {
+            if (isRolling) return;
+            const inputVal = document.getElementById('custom-faces-input').value;
+            const faces = presetFaces || (inputVal ? inputVal.split(',').map(s => s.trim()).filter(Boolean) : ["Yes", "No"]);
+
+            if (faces.length === 0) return;
+
+            isRolling = true;
+            playDiceSound();
+
+            const stage = document.getElementById('dice-stage-container');
+            const totalDisplay = document.getElementById('total-score');
+            const formulaDisplay = document.getElementById('formula-display');
+
+            stage.innerHTML = '';
+            totalDisplay.textContent = '...';
+            formulaDisplay.textContent = `Custom (${faces.length}面)`;
+
+            const wrapper = document.createElement('div');
+            wrapper.className = "w-28 h-28 dice-poly flex items-center justify-center font-bold text-center text-sm text-cyber-pink p-2 rolling";
+            wrapper.textContent = "???";
+            stage.appendChild(wrapper);
+
+            setTimeout(() => {
+                const picked = faces[Math.floor(Math.random() * faces.length)];
+                wrapper.classList.remove('rolling');
+                wrapper.textContent = picked;
+                totalDisplay.textContent = picked;
+
+                saveHistory({
+                    formula: `Custom Dice`,
+                    total: picked,
+                    details: [{ sides: 'Custom', value: picked }],
+                    modifier: 0,
+                    timestamp: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                });
+
+                isRolling = false;
+            }, 800);
+        }
+
+        // History & Statistics Logic
+        function saveHistory(entry) {
+            history.unshift(entry);
+            if (history.length > 20) history.pop(); // Keep last 20
+            renderHistory();
+            updateStats();
+        }
+
+        function renderHistory() {
+            const container = document.getElementById('tab-content-history');
+            if (history.length === 0) {
+                container.innerHTML = '<div class="text-center py-8 text-gray-600 text-xs font-medium">まだ履歴はありません</div>';
+                return;
+            }
+
+            container.innerHTML = '';
+            history.forEach(item => {
+                const row = document.createElement('div');
+                row.className = "bg-cyber-bg border border-cyber-border/60 rounded-xl p-2.5 flex items-center justify-between text-xs";
+                
+                const detailsStr = item.details.map(d => d.value).join(', ');
+                
+                row.innerHTML = `
+                    <div>
+                        <div class="font-orbitron font-bold text-gray-300">${item.formula}</div>
+                        <div class="text-[10px] text-gray-500 mt-0.5">出目: [${detailsStr}] <span class="ml-2">${item.timestamp}</span></div>
+                    </div>
+                    <div class="font-orbitron font-extrabold text-base text-cyber-neon">
+                        ${item.total}
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function updateStats() {
+            const numericHistory = history.filter(h => typeof h.total === 'number');
+            const totalRolls = history.length;
+            
+            document.getElementById('stat-total-rolls').textContent = totalRolls;
+
+            if (numericHistory.length === 0) {
+                document.getElementById('stat-avg-score').textContent = "0.0";
+                document.getElementById('stat-max-score').textContent = "0";
+                return;
+            }
+
+            const sum = numericHistory.reduce((acc, curr) => acc + curr.total, 0);
+            const avg = (sum / numericHistory.length).toFixed(1);
+            const max = Math.max(...numericHistory.map(h => h.total));
+
+            document.getElementById('stat-avg-score').textContent = avg;
+            document.getElementById('stat-max-score').textContent = max;
+        }
+
+        function clearHistory() {
+            history = [];
+            renderHistory();
+            updateStats();
+        }
+
+        function switchTab(tab) {
+            const histBtn = document.getElementById('tab-btn-history');
+            const statsBtn = document.getElementById('tab-btn-stats');
+            const histContent = document.getElementById('tab-content-history');
+            const statsContent = document.getElementById('tab-content-stats');
+
+            if (tab === 'history') {
+                histBtn.className = "text-xs font-bold font-orbitron text-cyber-neon border-b-2 border-cyber-neon pb-1 transition";
+                statsBtn.className = "text-xs font-bold font-orbitron text-gray-400 border-b-2 border-transparent pb-1 hover:text-gray-200 transition";
+                histContent.classList.remove('hidden');
+                statsContent.classList.add('hidden');
+            } else {
+                statsBtn.className = "text-xs font-bold font-orbitron text-cyber-neon border-b-2 border-cyber-neon pb-1 transition";
+                histBtn.className = "text-xs font-bold font-orbitron text-gray-400 border-b-2 border-transparent pb-1 hover:text-gray-200 transition";
+                statsContent.classList.remove('hidden');
+                histContent.classList.add('hidden');
+            }
+        }
+
+        // Init App
+        window.onload = function() {
+            renderPoolTags();
+            lucide.createIcons();
+        };
+    </script>
+</body>
+</html>
